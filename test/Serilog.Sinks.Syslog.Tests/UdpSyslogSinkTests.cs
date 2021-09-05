@@ -53,6 +53,25 @@ namespace Serilog.Sinks.Syslog.Tests
             => await SendUdpAsync(IPAddress.Loopback);
 
         [Fact]
+        public async Task Should_send_logs_to_udp_syslog_service_ipv4_with_severity_mapping_formatter()
+        {
+            var receiver = new UdpSyslogReceiver(this.cts.Token);
+
+            var logger = new LoggerConfiguration().MinimumLevel.Verbose();
+            var formatter = new CustomSeverityMappingFormatter(Facility.User);
+            var syslogUdpSink = new SyslogUdpSink(new IPEndPoint(IPAddress.Loopback, receiver.ListeningIPEndPoint.Port), formatter);
+            var sink = new PeriodicBatching.PeriodicBatchingSink(syslogUdpSink, SyslogLoggerConfigurationExtensions.DefaultBatchOptions);
+
+            logger.WriteTo.Sink(sink);
+
+            // Test with LogEventLevel set to Verbose since that is what the example CustomSeverityMappingFormatter
+            // class differs from the regular Rfc3164Formatter class.
+            var logEvents = Some.LogEvents(NumberOfEventsToSend, LogEventLevel.Verbose);
+
+            await TestLoggerFromExtensionMethod(logger, receiver, NumberOfEventsToSend, logEvents, null, "<15>");
+        }
+
+        [Fact]
         public async Task Extension_method_config_with_port()
         {
             var receiver = new UdpSyslogReceiver(this.cts.Token);
@@ -96,6 +115,7 @@ namespace Serilog.Sinks.Syslog.Tests
         [Fact]
         public async Task Extension_method_config_with_port_and_Rfc5424_format_and_messageIdPropertyName()
         {
+            const string propName = "WidgetProcess";
             var receiver = new UdpSyslogReceiver(this.cts.Token);
 
             var logger = new LoggerConfiguration();
@@ -103,18 +123,18 @@ namespace Serilog.Sinks.Syslog.Tests
             logger.WriteTo.UdpSyslog(IPAddress.Loopback.ToString(),
                 receiver.ListeningIPEndPoint.Port,
                 format: SyslogFormat.RFC5424,
-                messageIdPropertyName: "WidgetProcess");
+                messageIdPropertyName: propName);
 
             var evtProperties = new List<LogEventProperty>
             {
-                new LogEventProperty("WidgetProcess", new ScalarValue("Widget42")),
+                new LogEventProperty(propName, new ScalarValue("Widget42")),
             };
 
             // Should produce log events like:
             // <134>1 2013-12-19T00:01:00.000000-07:00 DSGCH0FP72 testhost.net462.x86 2396 Widget42 [meta WidgetProcess="Widget42"] __2
             var logEvents = Some.LogEvents(NumberOfEventsToSend, evtProperties);
 
-            await TestLoggerFromExtensionMethod(logger, receiver, altLogEvents: logEvents);
+            await TestLoggerFromExtensionMethod(logger, receiver, altLogEvents: logEvents, altPropName: propName);
         }
 
         [Fact]
@@ -136,7 +156,7 @@ namespace Serilog.Sinks.Syslog.Tests
             await TestLoggerFromExtensionMethod(logger, receiver, 0);
         }
 
-        private async Task TestLoggerFromExtensionMethod(LoggerConfiguration logger, UdpSyslogReceiver receiver, int expected = NumberOfEventsToSend, Events.LogEvent[] altLogEvents = null)
+        private async Task TestLoggerFromExtensionMethod(LoggerConfiguration logger, UdpSyslogReceiver receiver, int expected = NumberOfEventsToSend, LogEvent[] altLogEvents = null, string altPropName = null, string altPriority = null)
         {
             receiver.MessageReceived += (_, msg) =>
             {
@@ -165,12 +185,20 @@ namespace Serilog.Sinks.Syslog.Tests
                 this.messagesReceived.ShouldAllBe(x => logEvents.Any(e => x.EndsWith(e.MessageTemplate.Text)));
             }
 
-            if (altLogEvents != null)
+            if (altPropName != null)
             {
-                var source = altLogEvents.First().Properties.Keys.First();
-
-                this.messagesReceived.ShouldAllBe(x => logEvents.Any(e => x.Contains(source)));
+                this.messagesReceived.ShouldAllBe(x => logEvents.Any(e => x.Contains(altPropName)));
             }
+
+            if (altPriority == null)
+            {
+                // Use the default severity mapping that's implemented in the formatters and the LogEvents that
+                // get created here have a LogEventLevel of Information, which gets mapped to Severity.Informational.
+                // Facility.Local0 * 8 + Severity.Informational = 16 * 8 + 6 = 134
+                altPriority = "<134>";
+            }
+
+            this.messagesReceived.ShouldAllBe(x => logEvents.Any(e => x.StartsWith(altPriority)));
 
             this.cts.Cancel();
         }
@@ -201,6 +229,13 @@ namespace Serilog.Sinks.Syslog.Tests
             // The server should have received all 3 messages sent by the sink
             this.messagesReceived.Count.ShouldBe(logEvents.Length);
             this.messagesReceived.ShouldAllBe(x => logEvents.Any(e => x.EndsWith(e.MessageTemplate.Text)));
+
+            // Use the default severity mapping that's implemented in Rfc3164Formatter and the LogEvents that
+            // get created here have a LogEventLevel of Information, which gets mapped to Severity.Informational.
+            // Facility.Local0 * 8 + Severity.Informational = 16 * 8 + 6 = 134
+            var priority = "<134>";
+
+            this.messagesReceived.ShouldAllBe(x => logEvents.Any(e => x.StartsWith(priority)));
 
             sink.Dispose();
             this.cts.Cancel();

@@ -20,8 +20,8 @@ namespace Serilog.Sinks.Syslog
     /// </remarks>
     public abstract class SyslogFormatterBase : ISyslogFormatter
     {
-        private readonly Facility facility;
-        private readonly MessageTemplateTextFormatter templateFormatter;
+        protected readonly Facility facility;
+        protected readonly MessageTemplateTextFormatter templateFormatter;
         protected readonly string Host;
         protected static readonly string ProcessId = Process.GetCurrentProcess().Id.ToString();
         protected static readonly string ProcessName = Process.GetCurrentProcess().ProcessName;
@@ -42,7 +42,7 @@ namespace Serilog.Sinks.Syslog
 
         public abstract string FormatMessage(LogEvent logEvent);
 
-        public int CalculatePriority(LogEventLevel level)
+        public virtual int CalculatePriority(LogEventLevel level)
         {
             var severity = MapLogLevelToSeverity(level);
             return ((int)this.facility * 8) + (int)severity;
