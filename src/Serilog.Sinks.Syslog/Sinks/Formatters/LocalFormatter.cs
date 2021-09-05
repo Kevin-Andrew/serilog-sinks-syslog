@@ -3,6 +3,7 @@
 // Version 2.0. You may obtain a copy of the License at
 // http://www.apache.org/licenses/LICENSE-2.0
 
+using System;
 using Serilog.Events;
 using Serilog.Formatting.Display;
 
@@ -22,9 +23,12 @@ namespace Serilog.Sinks.Syslog
         /// </summary>
         /// <param name="facility">One of the <see cref="Facility"/> values indicating the machine process that created the syslog event. Defaults to <see cref="Facility.Local0"/>.</param>
         /// <param name="templateFormatter">See <see cref="Formatting.ITextFormatter"/>.</param>
+        /// <param name="severityMapping">Override the mapping logic of a Serilog <see cref="LogEventLevel"/> to
+        /// Syslog <see cref="Severity"/>.</param>
         public LocalFormatter(Facility facility = Facility.Local0,
-            MessageTemplateTextFormatter templateFormatter = null)
-            : base(facility, templateFormatter) { }
+            MessageTemplateTextFormatter templateFormatter = null,
+            Func<LogEventLevel, Severity> severityMapping = null)
+            : base(facility, templateFormatter, severityMapping: severityMapping) { }
 
         public override string FormatMessage(LogEvent logEvent)
             => RenderMessage(logEvent);
