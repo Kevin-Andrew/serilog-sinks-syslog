@@ -52,11 +52,14 @@ namespace Serilog.Sinks.Syslog
         /// <param name="templateFormatter">See <see cref="Formatting.ITextFormatter"/>.</param>
         /// <param name="messageIdPropertyName">Where the Id number of the message will be derived from. Defaults to the "SourceContext" property of the syslog event. Property name and value must be all printable ASCII characters with max length of 32.</param>
         /// <param name="sourceHost">Overrides the Host value in the syslog data packet. Defaults to Environment.MachineName when empty.</param>
+        /// <param name="severityMapping">Override the mapping logic of a Serilog <see cref="LogEventLevel"/> to
+        /// Syslog <see cref="Severity"/>.</param>
         public Rfc5424Formatter(Facility facility = Facility.Local0, string applicationName = null,
             MessageTemplateTextFormatter templateFormatter = null,
             string messageIdPropertyName = DefaultMessageIdPropertyName,
-            string sourceHost = null)
-            : base(facility, templateFormatter, sourceHost)
+            string sourceHost = null,
+            LogEventLevelToSeverityMapping severityMapping = LogEventLevelToSeverityMapping.VerboseToDebug)
+            : base(facility, templateFormatter, sourceHost, severityMapping)
         {
             this.applicationName = applicationName ?? ProcessName;
 

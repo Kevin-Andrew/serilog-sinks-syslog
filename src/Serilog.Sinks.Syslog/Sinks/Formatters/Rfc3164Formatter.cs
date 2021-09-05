@@ -27,10 +27,13 @@ namespace Serilog.Sinks.Syslog
         /// <param name="applicationName">A user supplied value representing the application name that will appear in the syslog event. Must be all printable ASCII characters. Max length 32. Defaults to the current process name.</param>
         /// <param name="templateFormatter">See <see cref="Formatting.ITextFormatter"/>.</param>
         /// <param name="sourceHost">Overrides the Hostname value in the syslog packet header. Max length 255. Defaults to Environment.MachineName.</param>
+        /// <param name="severityMapping">Override the mapping logic of a Serilog <see cref="LogEventLevel"/> to
+        /// Syslog <see cref="Severity"/>.</param>
         public Rfc3164Formatter(Facility facility = Facility.Local0, string applicationName = null,
             MessageTemplateTextFormatter templateFormatter = null,
-            string sourceHost = null)
-            : base(facility, templateFormatter, sourceHost)
+            string sourceHost = null,
+            LogEventLevelToSeverityMapping severityMapping = LogEventLevelToSeverityMapping.VerboseToDebug)
+            : base(facility, templateFormatter, sourceHost, severityMapping)
         {
             this.applicationName = applicationName ?? ProcessName;
 

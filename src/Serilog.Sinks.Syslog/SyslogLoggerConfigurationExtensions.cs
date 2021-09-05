@@ -49,12 +49,13 @@ namespace Serilog
         /// <seealso cref="!:https://github.com/serilog/serilog/wiki/Formatting-Output"/>
         public static LoggerConfiguration LocalSyslog(this LoggerSinkConfiguration loggerSinkConfig,
             string appName = null, Facility facility = Facility.Local0, string outputTemplate = null,
-            LogEventLevel restrictedToMinimumLevel = LevelAlias.Minimum)
+            LogEventLevel restrictedToMinimumLevel = LevelAlias.Minimum,
+            LogEventLevelToSeverityMapping severityMapping = LogEventLevelToSeverityMapping.VerboseToDebug)
         {
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
                 throw new ArgumentException("The local syslog sink is only supported on Linux systems");
 
-            var formatter = GetFormatter(SyslogFormat.Local, appName, facility, outputTemplate);
+            var formatter = GetFormatter(SyslogFormat.Local, appName, facility, outputTemplate, severityMapping: severityMapping);
             var syslogService = new LocalSyslogService(facility, appName);
             syslogService.Open();
 
@@ -83,13 +84,14 @@ namespace Serilog
             Facility facility = Facility.Local0, PeriodicBatchingSinkOptions batchConfig = null, string outputTemplate = null,
             LogEventLevel restrictedToMinimumLevel = LevelAlias.Minimum,
             string messageIdPropertyName = Rfc5424Formatter.DefaultMessageIdPropertyName,
-            string sourceHost = null)
+            string sourceHost = null,
+            LogEventLevelToSeverityMapping severityMapping = LogEventLevelToSeverityMapping.VerboseToDebug)
         {
             if (String.IsNullOrWhiteSpace(host))
                 throw new ArgumentException(nameof(host));
 
             batchConfig ??= DefaultBatchOptions;
-            var formatter = GetFormatter(format, appName, facility, outputTemplate, messageIdPropertyName, sourceHost);
+            var formatter = GetFormatter(format, appName, facility, outputTemplate, messageIdPropertyName, sourceHost, severityMapping);
             var endpoint = ResolveIP(host, port);
 
             var syslogUdpSink = new SyslogUdpSink(endpoint, formatter);
@@ -153,9 +155,10 @@ namespace Serilog
             LogEventLevel restrictedToMinimumLevel = LevelAlias.Minimum,
             string messageIdPropertyName = Rfc5424Formatter.DefaultMessageIdPropertyName,
             PeriodicBatchingSinkOptions batchConfig = null,
-            string sourceHost = null)
+            string sourceHost = null,
+            LogEventLevelToSeverityMapping severityMapping = LogEventLevelToSeverityMapping.VerboseToDebug)
         {
-            var formatter = GetFormatter(format, appName, facility, outputTemplate, messageIdPropertyName, sourceHost);
+            var formatter = GetFormatter(format, appName, facility, outputTemplate, messageIdPropertyName, sourceHost, severityMapping);
 
             var config = new SyslogTcpConfig
             {
@@ -176,7 +179,8 @@ namespace Serilog
         private static ISyslogFormatter GetFormatter(SyslogFormat format, string appName, Facility facility,
             string outputTemplate,
             string messageIdPropertyName = null,
-            string sourceHost = null)
+            string sourceHost = null,
+            LogEventLevelToSeverityMapping severityMapping = LogEventLevelToSeverityMapping.VerboseToDebug)
         {
             var templateFormatter = String.IsNullOrWhiteSpace(outputTemplate)
                 ? null
@@ -184,9 +188,9 @@ namespace Serilog
 
             return format switch
             {
-                SyslogFormat.RFC3164 => new Rfc3164Formatter(facility, appName, templateFormatter, sourceHost),
-                SyslogFormat.RFC5424 => new Rfc5424Formatter(facility, appName, templateFormatter, messageIdPropertyName, sourceHost),
-                SyslogFormat.Local => new LocalFormatter(facility, templateFormatter),
+                SyslogFormat.RFC3164 => new Rfc3164Formatter(facility, appName, templateFormatter, sourceHost, severityMapping),
+                SyslogFormat.RFC5424 => new Rfc5424Formatter(facility, appName, templateFormatter, messageIdPropertyName, sourceHost, severityMapping),
+                SyslogFormat.Local => new LocalFormatter(facility, templateFormatter, severityMapping),
                 _ => throw new ArgumentException($"Invalid format: {format}")
             };
         }
